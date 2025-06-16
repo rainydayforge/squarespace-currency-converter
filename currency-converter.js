@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const exchangeApiUrl = 'https://open.er-api.com/v6/latest/CAD';
   const currencySymbols = { 'CAD': 'C$', 'USD': '$' };
 
-  // Inject dropdown into your site (feel free to customize position/style later)
+  // Inject dropdown into your site
   function injectCurrencySwitcher(currentCurrency) {
     const switcher = document.createElement('div');
     switcher.innerHTML = `
@@ -113,4 +113,3 @@ document.addEventListener("DOMContentLoaded", function () {
 
   main();
 });
-
