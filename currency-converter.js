@@ -1,22 +1,33 @@
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   const baseCurrency = 'CAD';
-  const supportedCurrencies = { 'CA': 'CAD', 'US': 'USD' };
+  const supportedCurrencies = { 'CAD': 'CAD', 'USD': 'USD' };
   const exchangeApiUrl = 'https://open.er-api.com/v6/latest/CAD';
-  const geoApiUrl = 'https://ipwho.is/';
   const currencySymbols = { 'CAD': 'C$', 'USD': '$' };
 
-  async function getUserCountry() {
-    try {
-      const res = await fetch(geoApiUrl);
-      const data = await res.json();
-      if (data && data.country_code) {
-        return data.country_code;
-      }
-      return 'CA';
-    } catch (error) {
-      console.error('Geo API failed:', error);
-      return 'CA';
-    }
+  // Inject dropdown into your site (feel free to customize position/style later)
+  function injectCurrencySwitcher(currentCurrency) {
+    const switcher = document.createElement('div');
+    switcher.innerHTML = `
+      <label for="currencySelect" style="font-weight:bold;">Currency:</label>
+      <select id="currencySelect">
+        <option value="CAD" ${currentCurrency === 'CAD' ? 'selected' : ''}>CAD</option>
+        <option value="USD" ${currentCurrency === 'USD' ? 'selected' : ''}>USD</option>
+      </select>
+    `;
+    switcher.style.position = 'fixed';
+    switcher.style.top = '20px';
+    switcher.style.right = '20px';
+    switcher.style.zIndex = '9999';
+    switcher.style.background = '#fff';
+    switcher.style.padding = '10px';
+    switcher.style.border = '1px solid #ddd';
+    switcher.style.borderRadius = '5px';
+    document.body.appendChild(switcher);
+
+    document.getElementById('currencySelect').addEventListener('change', function () {
+      localStorage.setItem('selectedCurrency', this.value);
+      location.reload();
+    });
   }
 
   async function getExchangeRates() {
@@ -58,49 +69,47 @@
 
     selectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(el => {
-        if (el.getAttribute('data-converted')) return;
+        if (el.getAttribute('data-converted') === currency) return;
         const priceText = el.textContent.replace(/[^0-9.]/g, '');
         const priceValue = parseFloat(priceText);
         if (!isNaN(priceValue)) {
-          let convertedPrice = priceValue * rate;
-          convertedPrice = Math.round(convertedPrice) - 0.01;
-          convertedPrice = convertedPrice.toFixed(2);
+          let convertedPrice = priceValue;
+          if (currency !== baseCurrency) {
+            convertedPrice = priceValue * rate;
+            convertedPrice = Math.round(convertedPrice) - 0.01;
+            convertedPrice = convertedPrice.toFixed(2);
+          }
           el.textContent = `${currencySymbols[currency]}${convertedPrice} ${currency}`;
-          el.setAttribute('data-converted', 'true');
+          el.setAttribute('data-converted', currency);
         }
       });
     });
   }
 
   async function main() {
-    const country = await getUserCountry();
-    const currency = supportedCurrencies[country] || baseCurrency;
-    if (currency === baseCurrency) return;
+    const userCurrency = localStorage.getItem('selectedCurrency') || baseCurrency;
+    injectCurrencySwitcher(userCurrency);
+
+    if (userCurrency === baseCurrency) return;
 
     const rates = await getExchangeRates();
-    if (!rates || !rates[currency]) return;
+    if (!rates || !rates[userCurrency]) return;
 
-    const rate = rates[currency];
+    const rate = rates[userCurrency];
 
-    // Wait for full page render before starting the retry loop
-    const waitForPageLoad = setInterval(() => {
-      if (document.readyState === "complete") {
-        clearInterval(waitForPageLoad);
-        let attempts = 0;
-        const maxAttempts = 30;
-        const retryInterval = setInterval(() => {
-          convertPrices(rate, currency);
-          attempts++;
-          if (document.querySelector('.product-price') && attempts >= 3) {
-            clearInterval(retryInterval);
-          }
-          if (attempts >= maxAttempts) {
-            clearInterval(retryInterval);
-          }
-        }, 500);
+    let attempts = 0;
+    const maxAttempts = 30;
+    const interval = setInterval(() => {
+      convertPrices(rate, userCurrency);
+      attempts++;
+      if (document.querySelector('.product-price') && attempts >= 3) {
+        clearInterval(interval);
       }
-    }, 100);
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 500);
   }
 
   main();
-})();
+});
