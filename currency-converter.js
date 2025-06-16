@@ -84,7 +84,8 @@ function convertPrices(rate, currency) {
   });
 }
 
-async function main() {
+// ✅ MAKE MAIN GLOBAL
+window.main = async function () {
   const userCurrency = localStorage.getItem('selectedCurrency') || baseCurrency;
   injectCurrencySwitcher(userCurrency);
 
@@ -107,6 +108,11 @@ async function main() {
       clearInterval(interval);
     }
   }, 500);
-}
+};
 
-main();
+// ✅ ENSURE IT RUNS AFTER PAGE LOAD
+if (document.readyState === "complete") {
+  main();
+} else {
+  window.addEventListener("load", main);
+}
