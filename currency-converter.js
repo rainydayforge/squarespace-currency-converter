@@ -116,3 +116,4 @@ if (document.readyState === "complete") {
 } else {
   window.addEventListener("load", main);
 }
+Switch to manual currency selector version
