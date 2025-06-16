@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", function () {
+(function () {
   const baseCurrency = 'CAD';
   const supportedCurrencies = { 'CA': 'CAD', 'US': 'USD' };
   const exchangeApiUrl = 'https://open.er-api.com/v6/latest/CAD';
@@ -82,20 +82,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const rate = rates[currency];
 
-    // Retry loop logic for Fluid Engine lazy loading
-    let attempts = 0;
-    const maxAttempts = 20;
-    const interval = setInterval(() => {
-      convertPrices(rate, currency);
-      attempts++;
-      if (document.querySelector('.product-price') && attempts >= 3) {
-        clearInterval(interval); // stop after prices have loaded and conversion applied
+    // Wait for full page render before starting the retry loop
+    const waitForPageLoad = setInterval(() => {
+      if (document.readyState === "complete") {
+        clearInterval(waitForPageLoad);
+        let attempts = 0;
+        const maxAttempts = 30;
+        const retryInterval = setInterval(() => {
+          convertPrices(rate, currency);
+          attempts++;
+          if (document.querySelector('.product-price') && attempts >= 3) {
+            clearInterval(retryInterval);
+          }
+          if (attempts >= maxAttempts) {
+            clearInterval(retryInterval);
+          }
+        }, 500);
       }
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-      }
-    }, 500);
+    }, 100);
   }
 
   main();
-});
+})();
