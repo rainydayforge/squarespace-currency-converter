@@ -1,1 +1,101 @@
-document.addEventListener("DOMContentLoaded",function(){const e="CAD",t={CA:"CAD",US:"USD"},n="https://open.er-api.com/v6/latest/CAD",c="https://ipwho.is/",r={CAD:"C$",USD:"$"};async function a(){try{const e=await fetch(c),t=await e.json();return t&&t.country_code?t.country_code:"CA"}catch(e){return console.error("Geo API failed:",e),"CA"}}async function s(){try{const e=localStorage.getItem("exchangeRates"),t=localStorage.getItem("exchangeRatesTime"),c=864e5;if(e&&t&&Date.now()-t<c)return JSON.parse(e);const r=await fetch(n),a=await r.json();return localStorage.setItem("exchangeRates",JSON.stringify(a.rates)),localStorage.setItem("exchangeRatesTime",Date.now()),a.rates}catch(e){return console.error("Exchange API failed:",e),null}}function o(e,n){[".sqs-money-native",".ProductItem-details .ProductItem-price",".price",".ProductItem-price .sqs-money-element",".CartItem-price",".OrderSummary-price",".SummaryItem-price",".ProductList-price",".ProductItem-price-regular",".product-price"].forEach((function(c){document.querySelectorAll(c).forEach((function(a){if(!a.getAttribute("data-converted")){const s=a.textContent.replace(/[^0-9.]/g,""),o=parseFloat(s);if(!isNaN(o)){let t=o*e;t=Math.round(t)-.01,t=t.toFixed(2),a.textContent=`${r[n]}${t} ${n}`,a.setAttribute("data-converted","true")}}}))}))}!async function(){const c=await a(),r=t[c]||e;if(r===e)return;const i=await s();if(!i||!i[r])return;const d=i[r],l=new MutationObserver((()=>{o(d,r)}));l.observe(document.body,{childList:!0,subtree:!0}),o(d,r)}()});
+document.addEventListener("DOMContentLoaded", function () {
+  const baseCurrency = 'CAD';
+  const supportedCurrencies = { 'CA': 'CAD', 'US': 'USD' };
+  const exchangeApiUrl = 'https://open.er-api.com/v6/latest/CAD';
+  const geoApiUrl = 'https://ipwho.is/';
+  const currencySymbols = { 'CAD': 'C$', 'USD': '$' };
+
+  async function getUserCountry() {
+    try {
+      const res = await fetch(geoApiUrl);
+      const data = await res.json();
+      if (data && data.country_code) {
+        return data.country_code;
+      }
+      return 'CA';
+    } catch (error) {
+      console.error('Geo API failed:', error);
+      return 'CA';
+    }
+  }
+
+  async function getExchangeRates() {
+    try {
+      const cachedRates = localStorage.getItem('exchangeRates');
+      const cachedTime = localStorage.getItem('exchangeRatesTime');
+      const oneDay = 24 * 60 * 60 * 1000;
+
+      if (cachedRates && cachedTime && (Date.now() - cachedTime < oneDay)) {
+        return JSON.parse(cachedRates);
+      }
+
+      const res = await fetch(exchangeApiUrl);
+      const data = await res.json();
+
+      localStorage.setItem('exchangeRates', JSON.stringify(data.rates));
+      localStorage.setItem('exchangeRatesTime', Date.now());
+      return data.rates;
+
+    } catch (error) {
+      console.error('Exchange API failed:', error);
+      return null;
+    }
+  }
+
+  function convertPrices(rate, currency) {
+    const selectors = [
+      '.sqs-money-native',
+      '.ProductItem-details .ProductItem-price',
+      '.price',
+      '.ProductItem-price .sqs-money-element',
+      '.CartItem-price',
+      '.OrderSummary-price',
+      '.SummaryItem-price',
+      '.ProductList-price',
+      '.ProductItem-price-regular',
+      '.product-price'
+    ];
+
+    selectors.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => {
+        if (el.getAttribute('data-converted')) return;
+        const priceText = el.textContent.replace(/[^0-9.]/g, '');
+        const priceValue = parseFloat(priceText);
+        if (!isNaN(priceValue)) {
+          let convertedPrice = priceValue * rate;
+          convertedPrice = Math.round(convertedPrice) - 0.01;
+          convertedPrice = convertedPrice.toFixed(2);
+          el.textContent = `${currencySymbols[currency]}${convertedPrice} ${currency}`;
+          el.setAttribute('data-converted', 'true');
+        }
+      });
+    });
+  }
+
+  async function main() {
+    const country = await getUserCountry();
+    const currency = supportedCurrencies[country] || baseCurrency;
+    if (currency === baseCurrency) return;
+
+    const rates = await getExchangeRates();
+    if (!rates || !rates[currency]) return;
+
+    const rate = rates[currency];
+
+    // Retry loop logic for Fluid Engine lazy loading
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(() => {
+      convertPrices(rate, currency);
+      attempts++;
+      if (document.querySelector('.product-price') && attempts >= 3) {
+        clearInterval(interval); // stop after prices have loaded and conversion applied
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 500);
+  }
+
+  main();
+});
